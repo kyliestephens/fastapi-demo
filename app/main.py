@@ -21,7 +21,7 @@ def multiply(c: int, d: int):
     return {"product": c * d}
 
 @app.get("/divide/{e}/{f}")
-def divide(c: int, d: int):
+def divide(e: int, f: int):
     return {"answer": e / f}
 
 
