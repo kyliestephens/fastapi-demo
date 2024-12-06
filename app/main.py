@@ -22,14 +22,16 @@ app = FastAPI()
 
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+   CORSMiddleware,
+   allow_origins=["*"],
+   allow_methods=["*"],
+   allow_headers=["*"],
 )
 
 @app.get('/genres')
 def get_genres():
+    db = mysql.connector.connect(user=DBUSER, host=DBHOST, password=DBPASS, database=DB)
+    cur=db.cursor()
     query = "SELECT * FROM genres ORDER BY genreid;"
     try:    
         cur.execute(query)
@@ -38,59 +40,48 @@ def get_genres():
         json_data=[]
         for result in results:
             json_data.append(dict(zip(headers,result)))
+        cur.close()
+        db.close()
         return(json_data)
     except Error as e:
+        cur.close()
+        db.close()
         return {"Error": "MySQL Error: " + str(e)}
 
-
-def get_db_connection():
-    try:
-        connection = mysql.connector.connect(
-            host=DBHOST,
-            user=DBUSER,
-            password=DBPASS,
-            database=DB
-        )
-        if connection.is_connected():
-            print("Successfully connected to the database")
-            return connection
-    except Error as e:
-        print("Error while connecting to MySQL", e)
-        return None
-
-# FastAPI endpoint to get songs
 @app.get('/songs')
 def get_songs():
-    connection = get_db_connection()
-    if connection is None:
-        return {"Error": "Could not connect to the database"}
-    
+    db = mysql.connector.connect(user=DBUSER, host=DBHOST, password=DBPASS, database=DB)
+    cur=db.cursor()   
     query = """
-        SELECT songs.title, songs.album, songs.artist, songs.year, songs.file, songs.image, genres.genre 
-        FROM songs
-        JOIN genres ON songs.genre = genres.genreid;
+    SELECT
+        s.title,
+        s.album,
+        s.artist,
+        s.year,
+        s.file AS file,
+        s.image AS image,
+        g.genre AS genre  # Use 'g' for genre from genres table
+    FROM songs s
+    JOIN genres g ON s.genre = g.genreid  # Use 's' for songs and 'g' for genres
     """
-    
     try:
-        cur = connection.cursor()  # Create cursor object here
-        cur.execute(query)  # Execute the query
-        headers = [x[0] for x in cur.description]  # Get column names from the cursor description
+        cur.execute(query)
+        headers = [x[0] for x in cur.description]  # Get column names for headers
         results = cur.fetchall()  # Fetch all results
-        
-        # Convert results into a list of dictionaries
         json_data = []
         for result in results:
-            json_data.append(dict(zip(headers, result)))
-        
-        return json_data
+            json_data.append(dict(zip(headers, result)))  # Combine headers with values to form a dictionary
+        cur.close()
+        db.close()
+        return json_data  # FastAPI will return this as JSON
     except Error as e:
+        cur.close()
+        db.close()
         return {"Error": "MySQL Error: " + str(e)}
-    finally:
-        if connection.is_connected():
-            connection.close()  # Make sure to close the connection
 
 
 
+# FastAPI endpoint to get songs
 @app.get("/")  # zone apex
 def zone_apex():
     return {"Hello": "API!"}
